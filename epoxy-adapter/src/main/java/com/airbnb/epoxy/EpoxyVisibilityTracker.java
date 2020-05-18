@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import androidx.annotation.IdRes;
+import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
@@ -82,6 +83,9 @@ public class EpoxyVisibilityTracker {
 
   private boolean onChangedEnabled = true;
 
+  @Nullable
+  private Integer partialImpressionThresholdPercentage = null;
+
   /** All nested visibility trackers */
   private Map<RecyclerView, EpoxyVisibilityTracker> nestedTrackers = new HashMap<>();
 
@@ -98,6 +102,20 @@ public class EpoxyVisibilityTracker {
    */
   public void setOnChangedEnabled(boolean enabled) {
     onChangedEnabled = enabled;
+  }
+
+  /**
+   * Set the threshold of percentage visible area to identify the partial impression view state.
+   *
+   * @param thresholdPercentage Percentage of visible area of an element in the range [0..100].
+   *                            Defaults to <code>null</code>, which disables
+   *                            {@link VisibilityState#PARTIAL_IMPRESSION_VISIBLE} and
+   *                            {@link VisibilityState#PARTIAL_IMPRESSION_INVISIBLE} events.
+   */
+  public void setPartialImpressionThresholdPercentage(
+      @Nullable @IntRange(from = 0, to = 100) Integer thresholdPercentage
+  ) {
+    partialImpressionThresholdPercentage = thresholdPercentage;
   }
 
   /**
@@ -279,6 +297,12 @@ public class EpoxyVisibilityTracker {
     if (vi.update(itemView, recyclerView, detachEvent)) {
       // View is measured, process events
       vi.handleVisible(epoxyHolder, detachEvent);
+
+      if (partialImpressionThresholdPercentage != null) {
+        vi.handlePartialImpressionVisible(epoxyHolder, detachEvent,
+            partialImpressionThresholdPercentage);
+      }
+
       vi.handleFocus(epoxyHolder, detachEvent);
       vi.handleFullImpressionVisible(epoxyHolder, detachEvent);
       changed = vi.handleChanged(epoxyHolder, onChangedEnabled);
@@ -292,6 +316,7 @@ public class EpoxyVisibilityTracker {
     EpoxyVisibilityTracker tracker = getTracker(childRecyclerView);
     if (tracker == null) {
       tracker = new EpoxyVisibilityTracker();
+      tracker.setPartialImpressionThresholdPercentage(partialImpressionThresholdPercentage);
       tracker.attach(childRecyclerView);
     }
     nestedTrackers.put(childRecyclerView, tracker);
